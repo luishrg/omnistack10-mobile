@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Image, View, Text } from "react-native";
+import {
+  StyleSheet,
+  Image,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity
+} from "react-native";
 import {
   requestPermissionsAsync,
   getCurrentPositionAsync
@@ -7,8 +14,32 @@ import {
 
 import MapView, { Marker, Callout } from "react-native-maps";
 
-function Main() {
+import { MaterialIcons } from "@expo/vector-icons";
+
+import api from "../services/api";
+
+function Main({ navigation }) {
   const [currentRegion, setCurrentRegion] = useState(null);
+  const [devs, setDevs] = useState([]);
+  const [techs, setTechs] = useState("");
+
+  async function loadDevs() {
+    const { latitude, longitude } = currentRegion;
+
+    const response = await api.get("/devs/search", {
+      params: {
+        latitude,
+        longitude,
+        techs: techs
+      }
+    });
+
+    setDevs(response.data.devs);
+  }
+
+  function handleRegionChanged(region) {
+    setCurrentRegion(region);
+  }
 
   useEffect(() => {
     async function loadInitialPosition() {
@@ -38,31 +69,54 @@ function Main() {
 
   return (
     <>
-      <MapView initialRegion={currentRegion} style={styles.map}>
-        <Marker
-          coordinate={{
-            latitude: -18.8891592,
-            longitude: -48.2692181
-          }}
-        >
-          <Image
-            style={styles.avatar}
-            source={{
-              uri: "https://avatars1.githubusercontent.com/u/49236151?s=460&v=4"
+      <MapView
+        onRegionChangeComplete={handleRegionChanged}
+        initialRegion={currentRegion}
+        style={styles.map}
+      >
+        {devs.map(dev => (
+          <Marker
+            key={dev._id}
+            coordinate={{
+              latitude: dev.location.coordinates[1],
+              longitude: dev.location.coordinates[0]
             }}
-          />
-          <Callout>
-            <View style={styles.callout}>
-              <Text style={styles.devName}>Luis Rodrigues</Text>
-              <Text style={styles.devBio}>
-                Desenvolvedor Javascript Full Stack na empresa Predict.info.
-                Trabalhando atualmente com a Mean Stack
-              </Text>
-              <Text style={styles.devTechs}>Angular, MongoDB, NodeJS</Text>
-            </View>
-          </Callout>
-        </Marker>
+          >
+            <Image
+              style={styles.avatar}
+              source={{
+                uri: dev.avatar_url
+              }}
+            />
+            <Callout
+              onPress={() => {
+                navigation.navigate("Profile", {
+                  github_username: dev.github_username
+                });
+              }}
+            >
+              <View style={styles.callout}>
+                <Text style={styles.devName}>{dev.name}</Text>
+                <Text style={styles.devBio}>{dev.bio}</Text>
+                <Text style={styles.devTechs}> {dev.techs.join(", ")} </Text>
+              </View>
+            </Callout>
+          </Marker>
+        ))}
       </MapView>
+      <View style={styles.searchForm}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar Devs por Tecnologias"
+          placeholderTextColor="#999"
+          autoCapitalize="words"
+          autoCorrect={false}
+          onChangeText={setTechs}
+        />
+        <TouchableOpacity onPress={loadDevs} style={styles.loadButton}>
+          <MaterialIcons name="my-location" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </>
   );
 }
@@ -96,6 +150,41 @@ const styles = StyleSheet.create({
 
   devTechs: {
     marginTop: 5
+  },
+
+  searchForm: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    zIndex: 5,
+    flexDirection: "row"
+  },
+  searchInput: {
+    flex: 1,
+    height: 50,
+    backgroundColor: "#fff",
+    color: "#333",
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 4,
+      height: 4
+    },
+    shadowOpacity: 0.2,
+    elevation: 2
+  },
+
+  loadButton: {
+    width: 50,
+    height: 50,
+    backgroundColor: "#7d40e7",
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 15
   }
 });
 
